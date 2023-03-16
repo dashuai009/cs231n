@@ -1,8 +1,8 @@
 from builtins import range
 from builtins import object
-import numpy as np
+import cupy as np
 from past.builtins import xrange
-
+from tqdm import tqdm
 
 class KNearestNeighbor(object):
     """ a kNN classifier with L2 distance """
@@ -67,7 +67,7 @@ class KNearestNeighbor(object):
         num_test = X.shape[0]
         num_train = self.X_train.shape[0]
         dists = np.zeros((num_test, num_train))
-        for i in range(num_test):
+        for i in tqdm(range(num_test)):
             for j in range(num_train):
                 #####################################################################
                 # TODO:                                                             #
@@ -76,8 +76,7 @@ class KNearestNeighbor(object):
                 # not use a loop over dimension, nor use np.linalg.norm().          #
                 #####################################################################
                 # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-                pass
+                dists[i][j] = np.sqrt(np.sum(np.power(X[i] - self.X_train[j],2)))
                 # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
 
@@ -99,9 +98,8 @@ class KNearestNeighbor(object):
             # Do not use np.linalg.norm().                                        #
             #######################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-            pass
-
+            d = np.tile(X[i], (num_train,1))
+            dists[i] = np.sqrt(np.sum(np.power(d - self.X_train, 2), axis = 1))
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
 
@@ -129,8 +127,14 @@ class KNearestNeighbor(object):
         #       and two broadcast sums.                                         #
         #########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        # 我写的什么垃圾
+        # d = np.repeat(X, num_train, axis = 0) - np.tile(self.X_train, (num_test,1))
+        # dists = np.sqrt(np.sum(np.square(d),axis = 1)).reshape(num_test,num_train)
 
-        pass
+        dists += np.sum(self.X_train ** 2, axis=1).reshape(1, num_train)
+        dists += np.sum(X ** 2, axis=1).reshape(num_test, 1) # reshape for broadcasting
+        dists -= 2 * np.dot(X, self.X_train.T)
+        dists = np.sqrt(dists)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         return dists
@@ -162,8 +166,13 @@ class KNearestNeighbor(object):
             # Hint: Look up the function numpy.argsort.                             #
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-            pass
+            # closest_y = np.concatenate((self.y_train, np.arange(len(dists[i])))).reshape(-1,1)
+            # print(closest_y.shape)
+            closest_y = np.argsort(dists[i])
+            # for j, dist_i_j in enumerate(dists[i]):
+            #     # print(type(self.y_train[j]),self.y_train[j].get())
+            #     closest_y.append((dist_i_j, self.y_train[j]))
+            # closest_y.sort()
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
             #########################################################################
@@ -175,7 +184,32 @@ class KNearestNeighbor(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
+            # label_y = dict()  # label -> 数量，dist
+            # for dist, label in closest_y[:k]:
+            #     if label_y.get(label) != None:
+            #         num, _ = label_y[label]
+            #         label_y[label] = (num + 1, - dist)
+            #     else:
+            #         label_y[label] = (1, - dist)
+            # # 默认从小到大排序
+            # label_y_sorted = sorted(label_y.items(), key =  lambda kv:(kv[1], kv[0]))
+            # # 取最后一个，数量相等，取dist小的，所以把dist取负数去排序
+            # y_pred[i], _  = label_y_sorted[-1]
+
+            label_y = dict()  # label -> 数量，dist
+            for dist, _label in zip(dists[i][closest_y[:k]], self.y_train[closest_y[:k]]):
+                # label = self.y_train[index].item() # 这里要get
+                label = _label.item()
+                if label_y.get(label) != None:
+                    num, _ = label_y[label]
+                    label_y[label] = (num + 1, - dist)
+                else:
+                    label_y[label] = (1, - dist)
+            # 默认从小到大排序
+            label_y_sorted = sorted(label_y.items(), key =  lambda kv:(kv[1], kv[0]))
+            # print(label_y_sorted)
+            # 取最后一个，数量相等，取dist小的，所以把dist取负数去排序
+            y_pred[i], _  = label_y_sorted[-1]
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 

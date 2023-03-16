@@ -2,7 +2,7 @@ from __future__ import print_function
 
 from builtins import range
 from six.moves import cPickle as pickle
-import numpy as np
+import cupy as np
 import os
 from imageio import imread
 import platform
@@ -21,10 +21,9 @@ def load_CIFAR_batch(filename):
     """ load single batch of cifar """
     with open(filename, "rb") as f:
         datadict = load_pickle(f)
-        X = datadict["data"]
-        Y = datadict["labels"]
+        X = np.array(datadict["data"])
+        Y = np.array(datadict["labels"])
         X = X.reshape(10000, 3, 32, 32).transpose(0, 2, 3, 1).astype("float")
-        Y = np.array(Y)
         return X, Y
 
 
